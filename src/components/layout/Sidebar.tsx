@@ -16,6 +16,7 @@ import {
   Shield,
   Building2,
   Receipt,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Overview", href: "/" },
+  { icon: Upload, label: "Upload & Analyze", href: "/upload" },
   { icon: TrendingUp, label: "Cash Flow", href: "/cash-flow" },
   { icon: PieChart, label: "Expenses", href: "/expenses" },
   { icon: BarChart3, label: "Forecasting", href: "/forecasting" },
