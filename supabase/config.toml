@@ -1,1 +1,4 @@
 project_id = "imxakpfrusgkciepnelj"
+
+[functions.analyze-financials]
+verify_jwt = false
