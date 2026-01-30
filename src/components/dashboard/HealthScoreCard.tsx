@@ -10,6 +10,7 @@ interface HealthScoreCardProps {
     profitability: number;
     solvency: number;
     efficiency: number;
+    compliance: number;
   };
 }
 
@@ -41,10 +42,11 @@ export function HealthScoreCard({ score, previousScore, subScores }: HealthScore
   const TrendIcon = scoreDiff > 0 ? TrendingUp : scoreDiff < 0 ? TrendingDown : Minus;
 
   const subScoreItems = [
-    { label: "Liquidity", value: subScores.liquidity, tooltip: "Ability to meet short-term obligations" },
-    { label: "Profitability", value: subScores.profitability, tooltip: "Revenue generation efficiency" },
-    { label: "Solvency", value: subScores.solvency, tooltip: "Long-term financial stability" },
-    { label: "Efficiency", value: subScores.efficiency, tooltip: "Operational performance" },
+    { label: "Profitability", value: subScores.profitability, max: 25, tooltip: "Revenue generation efficiency" },
+    { label: "Liquidity", value: subScores.liquidity, max: 20, tooltip: "Ability to meet short-term obligations" },
+    { label: "Efficiency", value: subScores.efficiency, max: 20, tooltip: "Operational performance" },
+    { label: "Solvency", value: subScores.solvency, max: 20, tooltip: "Long-term financial stability" },
+    { label: "Compliance", value: subScores.compliance, max: 15, tooltip: "Tax and regulatory adherence" },
   ];
 
   return (
@@ -69,8 +71,8 @@ export function HealthScoreCard({ score, previousScore, subScores }: HealthScore
           <div className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium",
             scoreDiff > 0 ? "bg-success/20 text-success" :
-            scoreDiff < 0 ? "bg-destructive/20 text-destructive" :
-            "bg-muted text-muted-foreground"
+              scoreDiff < 0 ? "bg-destructive/20 text-destructive" :
+                "bg-muted text-muted-foreground"
           )}>
             <TrendIcon className="h-4 w-4" />
             <span>{scoreDiff > 0 ? "+" : ""}{scoreDiff.toFixed(1)}</span>
@@ -136,7 +138,7 @@ export function HealthScoreCard({ score, previousScore, subScores }: HealthScore
         </div>
 
         {/* Sub Scores */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {subScoreItems.map((item, index) => (
             <motion.div
               key={item.label}
@@ -147,18 +149,18 @@ export function HealthScoreCard({ score, previousScore, subScores }: HealthScore
             >
               <p className="text-sm text-muted-foreground mb-1">{item.label}</p>
               <div className="flex items-end gap-2">
-                <span className={cn("text-2xl font-bold tabular-nums", getScoreColor(item.value))}>
+                <span className={cn("text-2xl font-bold tabular-nums", getScoreColor((item.value / item.max) * 100))}>
                   {item.value}
                 </span>
-                <span className="text-xs text-muted-foreground mb-1">/100</span>
+                <span className="text-xs text-muted-foreground mb-1">/{item.max}</span>
               </div>
               {/* Mini progress bar */}
               <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${item.value}%` }}
+                  animate={{ width: `${(item.value / item.max) * 100}%` }}
                   transition={{ duration: 1, delay: 0.2 * index }}
-                  className={cn("h-full rounded-full bg-gradient-to-r", getScoreGradient(item.value))}
+                  className={cn("h-full rounded-full bg-gradient-to-r", getScoreGradient((item.value / item.max) * 100))}
                 />
               </div>
             </motion.div>

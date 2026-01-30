@@ -3,11 +3,11 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { motion } from "framer-motion";
 import { FileUploadAnalyzer } from "@/components/dashboard/FileUploadAnalyzer";
 import { HealthScoreCard } from "@/components/dashboard/HealthScoreCard";
-import { 
-  Upload, 
-  CheckCircle2, 
-  TrendingUp, 
-  AlertTriangle, 
+import {
+  Upload,
+  CheckCircle2,
+  TrendingUp,
+  AlertTriangle,
   Lightbulb,
   ArrowRight,
   FileText,
@@ -25,6 +25,7 @@ interface AnalysisResult {
     profitability: number;
     solvency: number;
     efficiency: number;
+    compliance: number;
   };
   metrics: {
     currentRatio: number;
@@ -32,6 +33,8 @@ interface AnalysisResult {
     profitMargin: number;
     inventoryTurnover: number;
     dso: number;
+    gstPaymentRatio?: number;
+    emiToRevenue?: number;
   };
   insights: string[];
   risks: string[];
@@ -80,11 +83,11 @@ const UploadAnalyze = () => {
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {[
-                { label: "Current Ratio", value: analysisResult.metrics.currentRatio.toFixed(2), status: analysisResult.metrics.currentRatio >= 1.5 ? "good" : "warning" },
+                { label: "Profit Margin", value: `${analysisResult.metrics.profitMargin.toFixed(1)}%`, status: analysisResult.metrics.profitMargin >= 5 ? "good" : "warning" },
+                { label: "GST Compliance", value: analysisResult.metrics.gstPaymentRatio !== undefined ? `${(analysisResult.metrics.gstPaymentRatio * 100).toFixed(0)}%` : "N/A", status: (analysisResult.metrics.gstPaymentRatio ?? 1) >= 0.8 ? "good" : "warning" },
+                { label: "EMI / Revenue", value: analysisResult.metrics.emiToRevenue !== undefined ? `${(analysisResult.metrics.emiToRevenue * 100).toFixed(0)}%` : "N/A", status: (analysisResult.metrics.emiToRevenue ?? 0) <= 0.3 ? "good" : "warning" },
                 { label: "Debt/Equity", value: analysisResult.metrics.debtToEquity.toFixed(2), status: analysisResult.metrics.debtToEquity <= 1 ? "good" : "warning" },
-                { label: "Profit Margin", value: `${analysisResult.metrics.profitMargin.toFixed(1)}%`, status: analysisResult.metrics.profitMargin >= 10 ? "good" : "warning" },
-                { label: "Inventory Turn", value: `${analysisResult.metrics.inventoryTurnover.toFixed(1)}x`, status: analysisResult.metrics.inventoryTurnover >= 4 ? "good" : "warning" },
-                { label: "DSO", value: `${analysisResult.metrics.dso} days`, status: analysisResult.metrics.dso <= 45 ? "good" : "warning" },
+                { label: "DSO", value: `${analysisResult.metrics.dso.toFixed(0)} days`, status: analysisResult.metrics.dso <= 90 ? "good" : "warning" },
               ].map((metric, index) => (
                 <motion.div
                   key={metric.label}

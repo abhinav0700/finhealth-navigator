@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
+import {
+  Upload,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
   X,
   FileSpreadsheet,
   File
@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { calculateHealthScore } from "@/lib/scoring";
 
 interface UploadedFile {
   name: string;
@@ -36,10 +37,10 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
   const parseCSV = (content: string): any[] => {
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
-    
+
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const data: any[] = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',');
       const row: Record<string, any> = {};
@@ -64,6 +65,9 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
     let inventory = 0;
     let debt = 0;
     let equity = 0;
+    let emi = 0;
+    let gstPayable = 0;
+    let gstPaid = 0;
 
     parsedData.forEach(row => {
       // Look for common column names
@@ -91,6 +95,15 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
       if (row.equity || row.capital) {
         equity = row.equity || row.capital || 0;
       }
+      if (row.emi || row.repayment || row.loan_payment) {
+        emi = row.emi || row.repayment || row.loan_payment || 0;
+      }
+      if (row.gst_payable || row.tax_payable) {
+        gstPayable = row.gst_payable || row.tax_payable || 0;
+      }
+      if (row.gst_paid || row.tax_paid) {
+        gstPaid = row.gst_paid || row.tax_paid || 0;
+      }
     });
 
     // If we didn't find structured monthly data, generate sample based on totals
@@ -105,6 +118,9 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
         inventory: inventory || 520000,
         debt: debt || 1200000,
         equity: equity || 2000000,
+        emi: emi || 150000, // Mock EMI
+        gstPayable: gstPayable || 50000, // Mock GST
+        gstPaid: gstPaid || 45000, // Mock GST
       };
     }
 
@@ -117,35 +133,38 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
       inventory,
       debt,
       equity,
+      emi,
+      gstPayable,
+      gstPaid
     };
   };
 
   const analyzeWithAI = async (financialData: any) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-financials`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      // Mock local analysis for now to ensure we use the mandatory scoring rules
+      // const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-financials`, { ... });
+
+      // Calculate score locally
+      const scoreResult = calculateHealthScore(financialData);
+
+      // Map to AnalysisResult structure
+      return {
+        healthScore: scoreResult.score,
+        subScores: scoreResult.subScores,
+        metrics: {
+          currentRatio: 1.5, // Placeholder or calculate if possible
+          debtToEquity: financialData.equity ? financialData.debt / financialData.equity : 0,
+          profitMargin: scoreResult.metrics.netMargin * 100,
+          inventoryTurnover: scoreResult.metrics.inventoryToRevenue * 12, // Rough approx
+          dso: scoreResult.metrics.arToRevenue * 30, // Rough approx
+          // Add new metrics specific to the rules
+          gstPaymentRatio: scoreResult.metrics.gstPaymentRatio,
+          emiToRevenue: scoreResult.metrics.emiToRevenue
         },
-        body: JSON.stringify({ 
-          financialData,
-          analysisType: 'full'
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 429) {
-          throw new Error("Rate limit exceeded. Please try again in a moment.");
-        }
-        if (response.status === 402) {
-          throw new Error("AI credits exhausted. Please top up your account.");
-        }
-        throw new Error(errorData.error || "Analysis failed");
-      }
-
-      return await response.json();
+        insights: scoreResult.insights,
+        risks: scoreResult.risks,
+        recommendations: ["Maintain positive cash flow.", "Monitor GST compliance closely.", "Keep debt service coverage high."] // Generic for now
+      };
     } catch (error) {
       console.error("AI Analysis error:", error);
       throw error;
@@ -155,10 +174,10 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
   const processFile = async (file: File): Promise<any> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
+
       reader.onload = async (e) => {
         const content = e.target?.result as string;
-        
+
         try {
           if (file.name.endsWith('.csv')) {
             const parsedData = parseCSV(content);
@@ -174,7 +193,7 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
           reject(error);
         }
       };
-      
+
       reader.onerror = () => reject(new Error("Failed to read file"));
       reader.readAsText(file);
     });
@@ -196,10 +215,10 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
       // Process each file
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        
+
         // Update status to uploading
-        setFiles(prev => prev.map((f, idx) => 
-          idx === prev.length - fileList.length + i 
+        setFiles(prev => prev.map((f, idx) =>
+          idx === prev.length - fileList.length + i
             ? { ...f, status: "uploading", progress: 30 }
             : f
         ));
@@ -207,8 +226,8 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update status to processing
-        setFiles(prev => prev.map((f, idx) => 
-          idx === prev.length - fileList.length + i 
+        setFiles(prev => prev.map((f, idx) =>
+          idx === prev.length - fileList.length + i
             ? { ...f, status: "processing", progress: 50 }
             : f
         ));
@@ -217,8 +236,8 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
         const parsedData = await processFile(file);
 
         // Update status to analyzing
-        setFiles(prev => prev.map((f, idx) => 
-          idx === prev.length - fileList.length + i 
+        setFiles(prev => prev.map((f, idx) =>
+          idx === prev.length - fileList.length + i
             ? { ...f, status: "analyzing", progress: 70, data: parsedData }
             : f
         ));
@@ -227,14 +246,14 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
         const analysisResult = await analyzeWithAI(parsedData);
 
         // Update status to complete
-        setFiles(prev => prev.map((f, idx) => 
-          idx === prev.length - fileList.length + i 
+        setFiles(prev => prev.map((f, idx) =>
+          idx === prev.length - fileList.length + i
             ? { ...f, status: "complete", progress: 100 }
             : f
         ));
 
         onAnalysisComplete(analysisResult);
-        
+
         toast({
           title: "Analysis Complete",
           description: `Financial health score: ${analysisResult.healthScore}/100`,
@@ -242,10 +261,10 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
       }
     } catch (error) {
       console.error("File processing error:", error);
-      setFiles(prev => prev.map(f => 
+      setFiles(prev => prev.map(f =>
         f.status !== "complete" ? { ...f, status: "error", progress: 0 } : f
       ));
-      
+
       toast({
         title: "Analysis Failed",
         description: error instanceof Error ? error.message : "Failed to analyze file",
@@ -317,11 +336,10 @@ export function FileUploadAnalyzer({ onAnalysisComplete }: FileUploadAnalyzerPro
     <div className="space-y-4">
       {/* Drop Zone */}
       <motion.div
-        className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-colors ${
-          isDragging 
-            ? "border-primary bg-primary/5" 
+        className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-colors ${isDragging
+            ? "border-primary bg-primary/5"
             : "border-border hover:border-primary/50 hover:bg-secondary/30"
-        }`}
+          }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
